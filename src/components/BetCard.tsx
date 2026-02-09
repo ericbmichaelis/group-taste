@@ -5,6 +5,7 @@ import { useBetStore, calcPayout } from "../store/betStore";
 import { CountdownTimer } from "./CountdownTimer";
 import { ShareToGroupModal } from "./ShareToGroupModal";
 import { useCountdown } from "../hooks/useCountdown";
+import { useAlienPayment, PAY_TOKENS, type PayToken } from "../hooks/useAlienPayment";
 
 function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase();
@@ -36,9 +37,12 @@ export function BetCard({ bet }: { bet: GroupBet }) {
   const [showShare, setShowShare] = useState(false);
   const [showJoinSlider, setShowJoinSlider] = useState(false);
   const [joinStake, setJoinStake] = useState(Math.round((bet.minStake + bet.maxStake) / 2));
+  const [payToken, setPayToken] = useState<PayToken>('ALIEN');
+  const [payError, setPayError] = useState<string | null>(null);
   const joinBet = useBetStore((s) => s.joinBet);
   const resolveBet = useBetStore((s) => s.resolveBet);
   const currentUserId = useBetStore((s) => s.currentUserId);
+  const { payForBet, isLoading: isPaying, reset: resetPayment } = useAlienPayment();
 
   const countdown = useCountdown(bet.expiresAt);
   const isExpired = countdown.isExpired;
@@ -52,7 +56,18 @@ export function BetCard({ bet }: { bet: GroupBet }) {
   const myEntry = bet.participants.find((p) => p.userId === currentUserId);
   const myPayout = myEntry && isResolved ? calcPayout(bet, myEntry) : 0;
 
-  function handleJoin() {
+  async function handleJoin() {
+    setPayError(null);
+    resetPayment();
+    const result = await payForBet(bet.id, joinStake, bet.marketTitle, payToken);
+    if (result.status !== 'paid') {
+      setPayError(
+        result.status === 'cancelled'
+          ? 'Payment cancelled'
+          : `Payment failed${result.errorCode ? `: ${result.errorCode}` : ''}`
+      );
+      return;
+    }
     joinBet(bet.id, currentUserId, joinStake);
     setJustJoined(true);
     setShowConfetti(true);
@@ -237,6 +252,13 @@ export function BetCard({ bet }: { bet: GroupBet }) {
           </div>
         )}
 
+        {/* Payment error */}
+        {payError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 mb-3 text-xs text-red-600 font-medium">
+            {payError}
+          </div>
+        )}
+
         {/* Join stake slider */}
         {showJoinSlider && !isJoined && !isExpired && !isFull && !isResolved && (
           <div className="bg-purple-50 rounded-xl p-3 mb-3 animate-fade-in-up">
@@ -255,6 +277,22 @@ export function BetCard({ bet }: { bet: GroupBet }) {
             <div className="flex items-center justify-between mt-1">
               <span className="text-[10px] text-purple-400 font-numbers">${bet.minStake}</span>
               <span className="text-[10px] text-purple-400 font-numbers">${bet.maxStake}</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="text-[10px] text-purple-500 font-medium">Pay with</span>
+              {PAY_TOKENS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setPayToken(t.id)}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full transition ${
+                    payToken === t.id
+                      ? "bg-purple-500 text-white"
+                      : "bg-white text-purple-600 border border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -286,28 +324,32 @@ export function BetCard({ bet }: { bet: GroupBet }) {
                   handleJoin();
                 }
               }}
-              disabled={isExpired || isFull || isJoined}
+              disabled={isExpired || isFull || isJoined || isPaying}
               className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                justJoined
-                  ? "bg-purple-500 text-white scale-[0.98]"
-                  : isJoined
-                    ? "bg-purple-100 text-purple-700 cursor-default"
-                    : isFull
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : showJoinSlider
-                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg active:scale-[0.97] shadow-sm"
-                        : "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg active:scale-[0.97] shadow-sm"
+                isPaying
+                  ? "bg-purple-300 text-white cursor-wait"
+                  : justJoined
+                    ? "bg-purple-500 text-white scale-[0.98]"
+                    : isJoined
+                      ? "bg-purple-100 text-purple-700 cursor-default"
+                      : isFull
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : showJoinSlider
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg active:scale-[0.97] shadow-sm"
+                          : "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg active:scale-[0.97] shadow-sm"
               }`}
             >
-              {justJoined
-                ? "Locked in! 🔒"
-                : isJoined
-                  ? "You're in ✓"
-                  : isFull
-                    ? "Full"
-                    : showJoinSlider
-                      ? `Same — $${joinStake} stake 🤝`
-                      : `I'm in — Up to $${bet.maxStake}`}
+              {isPaying
+                ? "Processing payment..."
+                : justJoined
+                  ? "Locked in! 🔒"
+                  : isJoined
+                    ? "You're in ✓"
+                    : isFull
+                      ? "Full"
+                      : showJoinSlider
+                        ? `Same — $${joinStake} stake 🤝`
+                        : `I'm in — Up to $${bet.maxStake}`}
             </button>
           )}
           <button

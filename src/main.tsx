@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AlienSsoProvider } from '@alien_org/sso-sdk-react'
+import { AlienProvider } from '@alien_org/react'
 import './index.css'
 import App from './App.tsx'
 
@@ -12,8 +13,10 @@ const ssoConfig = {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AlienSsoProvider config={ssoConfig}>
-      <App />
-    </AlienSsoProvider>
+    <AlienProvider>
+      <AlienSsoProvider config={ssoConfig}>
+        <App />
+      </AlienSsoProvider>
+    </AlienProvider>
   </StrictMode>,
 )

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, Users, Lock, Clock, Link2, Check } from "lucide-react";
 import { useBetStore, type GroupBet } from "../store/betStore";
 import { CountdownTimer } from "./CountdownTimer";
+import { useAlienPayment, PAY_TOKENS, type PayToken } from "../hooks/useAlienPayment";
 
 const avatarColors = [
   "bg-purple-500",
@@ -35,10 +36,13 @@ export function GroupChat({ bet, onBack }: Props) {
   const [input, setInput] = useState("");
   const [joinStake, setJoinStake] = useState(Math.round((bet.minStake + bet.maxStake) / 2));
   const [linkCopied, setLinkCopied] = useState(false);
+  const [payToken, setPayToken] = useState<PayToken>('ALIEN');
+  const [payError, setPayError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const currentUserId = useBetStore((s) => s.currentUserId);
   const addMessage = useBetStore((s) => s.addMessage);
   const joinBet = useBetStore((s) => s.joinBet);
+  const { payForBet, isLoading: isPaying, reset: resetPayment } = useAlienPayment();
 
   const liveBet = useBetStore((s) => s.bets.find((b) => b.id === bet.id));
   const messages = liveBet?.messages ?? [];
@@ -58,7 +62,18 @@ export function GroupChat({ bet, onBack }: Props) {
     setInput("");
   }
 
-  function handleJoin() {
+  async function handleJoin() {
+    setPayError(null);
+    resetPayment();
+    const result = await payForBet(bet.id, joinStake, bet.marketTitle, payToken);
+    if (result.status !== 'paid') {
+      setPayError(
+        result.status === 'cancelled'
+          ? 'Payment cancelled'
+          : `Payment failed${result.errorCode ? `: ${result.errorCode}` : ''}`
+      );
+      return;
+    }
     joinBet(bet.id, currentUserId, joinStake);
   }
 
@@ -210,6 +225,11 @@ export function GroupChat({ bet, onBack }: Props) {
       {/* Join banner or input bar */}
       {!isJoined && !isExpired && !isFull ? (
         <div className="border-t border-gray-200 bg-white px-4 py-3 space-y-2">
+          {payError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-600 font-medium">
+              {payError}
+            </div>
+          )}
           <div className="bg-purple-50 rounded-xl p-3">
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs font-medium text-purple-700">Pick your stake</span>
@@ -227,12 +247,33 @@ export function GroupChat({ bet, onBack }: Props) {
               <span className="text-[10px] text-purple-400 font-numbers">${bet.minStake}</span>
               <span className="text-[10px] text-purple-400 font-numbers">${bet.maxStake}</span>
             </div>
+            <div className="flex items-center gap-1.5 mt-2">
+              <span className="text-[10px] text-purple-500 font-medium">Pay with</span>
+              {PAY_TOKENS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setPayToken(t.id)}
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full transition ${
+                    payToken === t.id
+                      ? "bg-purple-500 text-white"
+                      : "bg-white text-purple-600 border border-purple-200 hover:bg-purple-100"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             onClick={handleJoin}
-            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-3 rounded-xl font-semibold text-sm hover:shadow-lg active:scale-[0.98] transition"
+            disabled={isPaying}
+            className={`w-full py-3 rounded-xl font-semibold text-sm transition ${
+              isPaying
+                ? "bg-purple-300 text-white cursor-wait"
+                : "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg active:scale-[0.98]"
+            }`}
           >
-            I'm in — ${joinStake} 🤝
+            {isPaying ? "Processing payment..." : `I'm in — $${joinStake} 🤝`}
           </button>
         </div>
       ) : (
