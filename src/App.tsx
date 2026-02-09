@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Flame, Users, Crown, ShieldCheck, LogOut, Loader2 } from "lucide-react";
+import { SignInButton } from "@alien_org/sso-sdk-react";
 import { useAppStore } from "./lib/store";
 import { useAlienAuth } from "./hooks/useAlienAuth";
 import { useXmtp } from "./hooks/useXmtp";
@@ -9,7 +10,7 @@ import { GroupsTab } from "./components/GroupsTab";
 
 function App() {
   const { activeTab, setActiveTab, setDeepLinkBetId } = useAppStore();
-  const { isAuthenticated, user, signIn, signOut } = useAlienAuth();
+  const { isAuthenticated, user, signOut } = useAlienAuth();
   const { isConnected: xmtpConnected, isConnecting: xmtpConnecting } = useXmtp();
 
   // Handle ?bet=ID deep link
@@ -71,12 +72,7 @@ function App() {
               </button>
             </div>
           ) : (
-            <button
-              onClick={signIn}
-              className="bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/30 transition"
-            >
-              Prove you're real 👽
-            </button>
+            <SignInButton variant="short" color="dark" />
           )}
         </div>
       </header>
