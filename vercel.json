@@ -1,8 +1,14 @@
 {
+  "functions": {
+    "api/kalshi.js": {
+      "memory": 256,
+      "maxDuration": 10
+    }
+  },
   "rewrites": [
     {
-      "source": "/kalshi-api/:path*",
-      "destination": "https://api.elections.kalshi.com/:path*"
+      "source": "/api/kalshi/(.*)",
+      "destination": "/api/kalshi"
     }
   ]
 }

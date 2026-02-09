@@ -1,4 +1,6 @@
-const KALSHI_API = "/kalshi-api/trade-api/v2";
+const KALSHI_API = import.meta.env.DEV
+  ? "/kalshi-api/trade-api/v2"
+  : "/api/kalshi";
 
 export interface KalshiMarket {
   ticker: string;
