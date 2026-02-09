@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/kalshi-api/:path*",
+      "destination": "https://api.elections.kalshi.com/:path*"
+    }
+  ]
+}
