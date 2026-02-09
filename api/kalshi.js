@@ -1,14 +1,14 @@
 export default async function handler(req, res) {
-  const url = req.url.replace(/^\/api\/kalshi/, "");
-  const target = `https://api.elections.kalshi.com/trade-api/v2${url}`;
+  // req.url will be something like /api/kalshi/events?limit=50&...
+  // Strip /api/kalshi prefix and build the Kalshi URL
+  const path = req.url.replace(/^\/api\/kalshi\/?/, "/");
+  const target = `https://api.elections.kalshi.com/trade-api/v2${path}`;
 
   try {
     const response = await fetch(target, {
-      method: req.method,
+      method: req.method || "GET",
       headers: {
         "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (compatible; GroupTaste/1.0)",
       },
     });
 
@@ -18,6 +18,6 @@ export default async function handler(req, res) {
     res.setHeader("Content-Type", response.headers.get("content-type") || "application/json");
     res.status(response.status).send(data);
   } catch (err) {
-    res.status(500).json({ error: "Failed to proxy Kalshi API" });
+    res.status(500).json({ error: "Failed to proxy Kalshi API", detail: String(err) });
   }
 }
